@@ -54,7 +54,8 @@ Edit `oxide/config/CrateGuardCS.json`:
   "MinGuardsPerCrate": 0,
   "MaxGuardsPerCrate": 3,
   "RoamRadius": 5.0,
-  "SpawnDelaySeconds": 2
+  "SpawnDelaySeconds": 2,
+  "MinSpawnDistanceFromCrate": 2.0
 }
 ```
 
@@ -62,6 +63,7 @@ Edit `oxide/config/CrateGuardCS.json`:
 - **MaxGuardsPerCrate**: Maximum scientists to spawn (>= 1)
 - **RoamRadius**: Randomization radius for spawn positions (in meters)
 - **SpawnDelaySeconds**: Delay after crate lands before spawning guards
+- **MinSpawnDistanceFromCrate**: Minimum distance (in meters) from the crate center where scientists can spawn
 
 ## Admin Commands
 
