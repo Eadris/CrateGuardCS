@@ -265,11 +265,17 @@ namespace Oxide.Plugins
                     float xOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float zOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float distance = Mathf.Sqrt(xOffset * xOffset + zOffset * zOffset);
-                    if (distance < config.MinSpawnDistanceFromCrate)
+                    if (distance > 0f && distance < config.MinSpawnDistanceFromCrate)
                     {
                         float scale = config.MinSpawnDistanceFromCrate / distance;
                         xOffset *= scale;
                         zOffset *= scale;
+                    }
+                    else if (distance == 0f)
+                    {
+                        // If both offsets are zero, use a default offset
+                        xOffset = config.MinSpawnDistanceFromCrate;
+                        zOffset = 0f;
                     }
                     
                     Vector3 abovePos = cratePos + new Vector3(xOffset, RaycastStartHeight, zOffset);
