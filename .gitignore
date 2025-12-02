@@ -52,3 +52,16 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+steamcmd/
+
+# Project-specific
+lib/                    # Downloaded assemblies (rebuild with build.ps1)
+oxide/plugins/*/        # Compiled output from build
+.rust-ds/               # Rust server installation artifacts
+*.zip                   # Downloaded package files
+nuget.exe               # Downloaded NuGet executable
+
+# Exception: Release folder and its contents should be checked in
+!release/
+!release/**
+
