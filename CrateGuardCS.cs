@@ -191,6 +191,11 @@ namespace Oxide.Plugins
         // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab
         // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam_tethered.prefab
         private const string ScientistPrefab = "assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab";
+
+        // Raycast constants for ground detection when spawning scientists
+        private const float RaycastStartHeight = 50f;
+        private const float DefaultGroundOffset = 1.5f;
+        private const float RaycastMaxDistance = 100f;
         // NOTE: Rust 2025 does not support customizing patrol, aggression, or roam radius via plugin code.
         // The RoamRadius config only affects spawn position randomization, not AI behavior.
         // Scientists will use default prefab AI (patrol, attack, roam) as defined by the server.
@@ -246,10 +251,10 @@ namespace Oxide.Plugins
                         zOffset *= scale;
                     }
                     
-                    Vector3 abovePos = cratePos + new Vector3(xOffset, 50f, zOffset);
+                    Vector3 abovePos = cratePos + new Vector3(xOffset, RaycastStartHeight, zOffset);
                     RaycastHit hit;
-                    Vector3 groundPos = cratePos + new Vector3(xOffset, 1.5f, zOffset);
-                    if (Physics.Raycast(abovePos, Vector3.down, out hit, 100f, LayerMask.GetMask("Terrain", "World", "Default")))
+                    Vector3 groundPos = cratePos + new Vector3(xOffset, DefaultGroundOffset, zOffset);
+                    if (Physics.Raycast(abovePos, Vector3.down, out hit, RaycastMaxDistance, LayerMask.GetMask("Terrain", "World", "Default")))
                     {
                         groundPos = hit.point;
                     }
