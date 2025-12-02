@@ -7,6 +7,7 @@ A Rust plugin that automatically spawns hostile scientist NPCs to guard supply d
 
 - **Automatic Guard Spawning**: Scientists spawn around supply drops after they land
 - **Configurable Settings**: Adjust min/max guard count, roam radius, and spawn delay
+- **Crate Guard Toggle**: Enable or disable guarding of supply drop crates via config/command
 - **Admin Commands**: Manage settings in-game via chat commands
 - **Permission System**: Control who can modify settings and spawn guards
 - **Ground Detection**: Scientists spawn on terrain, not inside crates
@@ -55,7 +56,8 @@ Edit `oxide/config/CrateGuardCS.json`:
   "MaxGuardsPerCrate": 3,
   "RoamRadius": 5.0,
   "SpawnDelaySeconds": 2,
-  "MinSpawnDistanceFromCrate": 2.0
+   "MinSpawnDistanceFromCrate": 2.0,
+   "EnableCrateGuards": true
 }
 ```
 
@@ -64,6 +66,7 @@ Edit `oxide/config/CrateGuardCS.json`:
 - **RoamRadius**: Randomization radius for spawn positions (in meters)
 - **SpawnDelaySeconds**: Delay after crate lands before spawning guards
 - **MinSpawnDistanceFromCrate**: Minimum distance (in meters) from the crate center where scientists can spawn
+ - **EnableCrateGuards**: Toggle spawning guards for supply drop crates
 
 ## Admin Commands
 
@@ -74,6 +77,7 @@ Requires `crateguard.spawn` permission:
 - `/crateguards max <number>` - Set maximum guards per crate
 - `/crateguards radius <distance>` - Set roam radius
 - `/crateguards delay <seconds>` - Set spawn delay
+ - `/crateguards crates <on|off>` - Toggle crate guards on or off
 - `/crateguards status` - Show current settings
 - `/crateguards spawn` - Spawn a scientist at your position (testing)
 
