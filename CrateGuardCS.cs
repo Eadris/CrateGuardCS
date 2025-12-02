@@ -19,8 +19,8 @@ namespace Oxide.Plugins
         {
             public int MinGuardsPerCrate = 0;
             public int MaxGuardsPerCrate = 3;
-            public float RoamRadius = 15f;
-            public int SpawnDelaySeconds = 0; // Delay after crate lands before spawning
+            public float RoamRadius = 5f;
+            public int SpawnDelaySeconds = 2; // Delay after crate lands before spawning
         }
 
         private Configuration config;
@@ -51,7 +51,7 @@ namespace Oxide.Plugins
             }
             if (config.RoamRadius <= 0f)
             {
-                config.RoamRadius = 15f;
+                config.RoamRadius = 5f;
             }
             if (config.SpawnDelaySeconds < 0)
             {
