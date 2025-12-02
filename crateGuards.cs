@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Oxide.Core.Plugins;
 using UnityEngine;
 
@@ -40,6 +41,70 @@ namespace Oxide.Plugins
         {
             // Code that runs when the server is fully started
             Puts("CrateGuardCS plugin loaded successfully.");
+            Puts($"  Guards per crate: {config.GuardsPerCrate}");
+            Puts($"  Roam radius: {config.RoamRadius}");
+        }
+
+        // --- Chat Commands ---
+
+        [ChatCommand("crateguards")]
+        void CmdCrateGuards(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin)
+            {
+                player.ChatMessage("You need admin permissions to use this command.");
+                return;
+            }
+
+            if (args.Length == 0)
+            {
+                player.ChatMessage("=== CrateGuardCS Commands ===");
+                player.ChatMessage("/crateguards guards <number> - Set guards per crate");
+                player.ChatMessage("/crateguards radius <distance> - Set roam radius");
+                player.ChatMessage("/crateguards status - Show current settings");
+                return;
+            }
+
+            string subcommand = args[0].ToLower();
+
+            if (subcommand == "guards" && args.Length > 1)
+            {
+                if (int.TryParse(args[1], out int guardCount) && guardCount > 0)
+                {
+                    config.GuardsPerCrate = guardCount;
+                    SaveConfig();
+                    player.ChatMessage($"Guards per crate set to: {guardCount}");
+                    Puts($"[CrateGuards] Admin {player.displayName} set guards per crate to: {guardCount}");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a positive number.");
+                }
+            }
+            else if (subcommand == "radius" && args.Length > 1)
+            {
+                if (float.TryParse(args[1], out float radius) && radius > 0f)
+                {
+                    config.RoamRadius = radius;
+                    SaveConfig();
+                    player.ChatMessage($"Roam radius set to: {radius}");
+                    Puts($"[CrateGuards] Admin {player.displayName} set roam radius to: {radius}");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a positive number.");
+                }
+            }
+            else if (subcommand == "status")
+            {
+                player.ChatMessage("=== CrateGuardCS Status ===");
+                player.ChatMessage($"Guards per crate: {config.GuardsPerCrate}");
+                player.ChatMessage($"Roam radius: {config.RoamRadius}");
+            }
+            else
+            {
+                player.ChatMessage("Unknown subcommand. Use /crateguards for help.");
+            }
         }
 
         // --- Oxide Hook (The main logic) ---
@@ -70,28 +135,35 @@ namespace Oxide.Plugins
                 // 2. Create the scientist entity
                 BaseEntity scientistEntity = GameManager.server.CreateEntity(ScientistPrefab, spawnPos);
                 
-                if (scientistEntity is Scientist scientist)
+                if (scientistEntity != null && scientistEntity.IsValid())
                 {
                     // 3. Configure the Scientist's behavior
-                    scientist.Hostile = true; // Make it aggressive towards players
+                    scientistEntity.SendMessage("SetHome", cratePos, SendMessageOptions.DontRequireReceiver);
                     
-                    // Set the scientist's home position to the crate's location. 
-                    // This tells the AI to stay and patrol around this point.
-                    scientist.SetHome(cratePos); 
+                    // Try to set hostile through a generic approach
+                    var type = scientistEntity.GetType();
+                    var hostileProp = type.GetProperty("Hostile");
+                    if (hostileProp != null)
+                    {
+                        hostileProp.SetValue(scientistEntity, true);
+                    }
                     
-                    // The min/max roam range is often handled by the AI controller, 
-                    // but we can enforce the home range if needed.
-                    scientist.minRoamRange = 0f;
-                    scientist.maxRoamRange = config.RoamRadius;
+                    // Try to set roam ranges
+                    var minRangeProp = type.GetProperty("minRoamRange");
+                    var maxRangeProp = type.GetProperty("maxRoamRange");
+                    if (minRangeProp != null)
+                        minRangeProp.SetValue(scientistEntity, 0f);
+                    if (maxRangeProp != null)
+                        maxRangeProp.SetValue(scientistEntity, config.RoamRadius);
 
                     // 4. Spawn the entity into the world
-                    scientist.Spawn();
+                    scientistEntity.Spawn();
                     
                     Puts($"Spawned Scientist #{i+1} near crate.");
                 }
                 else
                 {
-                    Puts("Error: Failed to create or cast scientist entity.");
+                    Puts("Error: Failed to create or spawn scientist entity.");
                 }
             }
         }
