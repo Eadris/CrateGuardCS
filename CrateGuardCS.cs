@@ -19,7 +19,7 @@ namespace Oxide.Plugins
         {
             public int MinGuardsPerCrate = 0;
             public int MaxGuardsPerCrate = 3;
-            public float RoamRadius = 15f;
+            public float RoamRadius = 5f;
             public int SpawnDelaySeconds = 2; // Delay after crate lands before spawning
         }
 
@@ -51,11 +51,15 @@ namespace Oxide.Plugins
             }
             if (config.RoamRadius <= 0f)
             {
-                config.RoamRadius = 15f;
+                config.RoamRadius = 5f;
             }
             if (config.SpawnDelaySeconds < 0)
             {
                 config.SpawnDelaySeconds = 0;
+            }
+            if (config.MinSpawnDistanceFromCrate < 0f)
+            {
+                config.MinSpawnDistanceFromCrate = 2f;
             }
             SaveConfig();
         }
@@ -92,6 +96,7 @@ namespace Oxide.Plugins
                 player.ChatMessage("/crateguards max <number> - Set maximum guards per crate (1+)");
                 player.ChatMessage("/crateguards radius <distance> - Set roam radius");
                 player.ChatMessage("/crateguards delay <seconds> - Set spawn delay in seconds");
+                player.ChatMessage("/crateguards mindist <distance> - Set minimum spawn distance from crate");
                 player.ChatMessage("/crateguards status - Show current settings");
                 player.ChatMessage("/crateguards spawn - Spawn a scientist at your position (requires permission)");
                 return;
@@ -171,6 +176,20 @@ namespace Oxide.Plugins
                     player.ChatMessage("Invalid value. Please use a non-negative number.");
                 }
             }
+            else if (subcommand == "mindist" && args.Length > 1)
+            {
+                if (float.TryParse(args[1], out float minDist) && minDist >= 0f)
+                {
+                    config.MinSpawnDistanceFromCrate = minDist;
+                    SaveConfig();
+                    player.ChatMessage($"Minimum spawn distance from crate set to: {minDist}");
+                    Puts($"[CrateGuardCS] {player.displayName} set min spawn distance to: {minDist}");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a non-negative number.");
+                }
+            }
             else if (subcommand == "status")
             {
                 player.ChatMessage("=== CrateGuardCS Status ===");
@@ -178,6 +197,7 @@ namespace Oxide.Plugins
                 player.ChatMessage($"Max guards per crate: {config.MaxGuardsPerCrate}");
                 player.ChatMessage($"Roam radius: {config.RoamRadius}");
                 player.ChatMessage($"Spawn delay: {config.SpawnDelaySeconds} seconds");
+                player.ChatMessage($"Min spawn distance from crate: {config.MinSpawnDistanceFromCrate}");
             }
             else
             {
@@ -191,6 +211,11 @@ namespace Oxide.Plugins
         // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab
         // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam_tethered.prefab
         private const string ScientistPrefab = "assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab";
+
+        // Raycast constants for ground detection when spawning scientists
+        private const float RaycastStartHeight = 50f;
+        private const float DefaultGroundOffset = 1.5f;
+        private const float RaycastMaxDistance = 100f;
         // NOTE: Rust 2025 does not support customizing patrol, aggression, or roam radius via plugin code.
         // The RoamRadius config only affects spawn position randomization, not AI behavior.
         // Scientists will use default prefab AI (patrol, attack, roam) as defined by the server.
@@ -235,21 +260,21 @@ namespace Oxide.Plugins
             timer.Once(config.SpawnDelaySeconds, () => {
                 for (int i = 0; i < guards; i++)
                 {
-                    // Ensure spawn offset is at least 2 units away from crate center
+                    // Ensure spawn offset is at least MinSpawnDistanceFromCrate units away from crate center
                     float xOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float zOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float distance = Mathf.Sqrt(xOffset * xOffset + zOffset * zOffset);
-                    if (distance < 2f)
+                    if (distance < config.MinSpawnDistanceFromCrate)
                     {
-                        float scale = 2f / distance;
+                        float scale = config.MinSpawnDistanceFromCrate / distance;
                         xOffset *= scale;
                         zOffset *= scale;
                     }
                     
-                    Vector3 abovePos = cratePos + new Vector3(xOffset, 50f, zOffset);
+                    Vector3 abovePos = cratePos + new Vector3(xOffset, RaycastStartHeight, zOffset);
                     RaycastHit hit;
-                    Vector3 groundPos = cratePos + new Vector3(xOffset, 1.5f, zOffset);
-                    if (Physics.Raycast(abovePos, Vector3.down, out hit, 100f, LayerMask.GetMask("Terrain", "World", "Default")))
+                    Vector3 groundPos = cratePos + new Vector3(xOffset, DefaultGroundOffset, zOffset);
+                    if (Physics.Raycast(abovePos, Vector3.down, out hit, RaycastMaxDistance, LayerMask.GetMask("Terrain", "World", "Default")))
                     {
                         groundPos = hit.point;
                     }
