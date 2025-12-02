@@ -7,6 +7,7 @@ A Rust plugin that automatically spawns hostile scientist NPCs to guard supply d
 
 - **Automatic Guard Spawning**: Scientists spawn around supply drops after they land
 - **Configurable Settings**: Adjust min/max guard count, roam radius, and spawn delay
+- **Crate Guard Toggle**: Enable or disable guarding of supply drop crates via config/command
 - **Admin Commands**: Manage settings in-game via chat commands
 - **Permission System**: Control who can modify settings and spawn guards
 - **Ground Detection**: Scientists spawn on terrain, not inside crates
