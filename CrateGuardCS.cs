@@ -57,6 +57,10 @@ namespace Oxide.Plugins
             {
                 config.SpawnDelaySeconds = 0;
             }
+            if (config.MinSpawnDistanceFromCrate < 0f)
+            {
+                config.MinSpawnDistanceFromCrate = 2f;
+            }
             SaveConfig();
         }
 
@@ -92,6 +96,7 @@ namespace Oxide.Plugins
                 player.ChatMessage("/crateguards max <number> - Set maximum guards per crate (1+)");
                 player.ChatMessage("/crateguards radius <distance> - Set roam radius");
                 player.ChatMessage("/crateguards delay <seconds> - Set spawn delay in seconds");
+                player.ChatMessage("/crateguards mindist <distance> - Set minimum spawn distance from crate");
                 player.ChatMessage("/crateguards status - Show current settings");
                 player.ChatMessage("/crateguards spawn - Spawn a scientist at your position (requires permission)");
                 return;
@@ -171,6 +176,20 @@ namespace Oxide.Plugins
                     player.ChatMessage("Invalid value. Please use a non-negative number.");
                 }
             }
+            else if (subcommand == "mindist" && args.Length > 1)
+            {
+                if (float.TryParse(args[1], out float minDist) && minDist >= 0f)
+                {
+                    config.MinSpawnDistanceFromCrate = minDist;
+                    SaveConfig();
+                    player.ChatMessage($"Minimum spawn distance from crate set to: {minDist}");
+                    Puts($"[CrateGuardCS] {player.displayName} set min spawn distance to: {minDist}");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a non-negative number.");
+                }
+            }
             else if (subcommand == "status")
             {
                 player.ChatMessage("=== CrateGuardCS Status ===");
@@ -178,6 +197,7 @@ namespace Oxide.Plugins
                 player.ChatMessage($"Max guards per crate: {config.MaxGuardsPerCrate}");
                 player.ChatMessage($"Roam radius: {config.RoamRadius}");
                 player.ChatMessage($"Spawn delay: {config.SpawnDelaySeconds} seconds");
+                player.ChatMessage($"Min spawn distance from crate: {config.MinSpawnDistanceFromCrate}");
             }
             else
             {
@@ -240,13 +260,13 @@ namespace Oxide.Plugins
             timer.Once(config.SpawnDelaySeconds, () => {
                 for (int i = 0; i < guards; i++)
                 {
-                    // Ensure spawn offset is at least 2 units away from crate center
+                    // Ensure spawn offset is at least MinSpawnDistanceFromCrate units away from crate center
                     float xOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float zOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float distance = Mathf.Sqrt(xOffset * xOffset + zOffset * zOffset);
-                    if (distance < 2f)
+                    if (distance < config.MinSpawnDistanceFromCrate)
                     {
-                        float scale = 2f / distance;
+                        float scale = config.MinSpawnDistanceFromCrate / distance;
                         xOffset *= scale;
                         zOffset *= scale;
                     }
