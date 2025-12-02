@@ -21,8 +21,8 @@ namespace Oxide.Plugins
 
         private Configuration config;
 
-        // The prefab path for the scientist NPC
-        private const string ScientistPrefab = "assets/prefabs/npc/scientist/scientist.prefab";
+        // The prefab path for the scientist NPC (Rust 2025)
+        private const string ScientistPrefab = "assets/prefabs/npc/scientist/scientist_full_any.prefab";
 
         // --- Plugin Initialization ---
 
@@ -125,45 +125,47 @@ namespace Oxide.Plugins
 
             for (int i = 0; i < guards; i++)
             {
-                // 1. Determine a randomized spawn position near the crate
                 float xOffset = Random.Range(-5f, 5f);
                 float zOffset = Random.Range(-5f, 5f);
-                
-                // Spawn 1.5 units above the ground
                 Vector3 spawnPos = cratePos + new Vector3(xOffset, 1.5f, zOffset);
-                
-                // 2. Create the scientist entity
-                BaseEntity scientistEntity = GameManager.server.CreateEntity(ScientistPrefab, spawnPos);
-                
-                if (scientistEntity != null && scientistEntity.IsValid())
-                {
-                    // 3. Configure the Scientist's behavior
-                    scientistEntity.SendMessage("SetHome", cratePos, SendMessageOptions.DontRequireReceiver);
-                    
-                    // Try to set hostile through a generic approach
-                    var type = scientistEntity.GetType();
-                    var hostileProp = type.GetProperty("Hostile");
-                    if (hostileProp != null)
-                    {
-                        hostileProp.SetValue(scientistEntity, true);
-                    }
-                    
-                    // Try to set roam ranges
-                    var minRangeProp = type.GetProperty("minRoamRange");
-                    var maxRangeProp = type.GetProperty("maxRoamRange");
-                    if (minRangeProp != null)
-                        minRangeProp.SetValue(scientistEntity, 0f);
-                    if (maxRangeProp != null)
-                        maxRangeProp.SetValue(scientistEntity, config.RoamRadius);
 
-                    // 4. Spawn the entity into the world
-                    scientistEntity.Spawn();
-                    
-                    Puts($"Spawned Scientist #{i+1} near crate.");
+                BaseEntity entity = GameManager.server.CreateEntity(ScientistPrefab, spawnPos);
+                if (entity == null || !entity.IsValid())
+                {
+                    Puts($"Error: Failed to create scientist entity #{i+1}.");
+                    continue;
+                }
+
+                entity.enableSaving = false;
+                entity.Spawn();
+
+                // Try to cast to NPCPlayerApex (actual scientist AI)
+                var apexType = entity.GetType().Assembly.GetType("NPCPlayerApex");
+                if (apexType != null && apexType.IsInstanceOfType(entity))
+                {
+                    dynamic npc = entity;
+                    npc.Hostile = true;
+                    npc.SetHome(cratePos);
+                    npc.minRoamRange = 0f;
+                    npc.maxRoamRange = config.RoamRadius;
+                    npc.StartAI();
+                    Puts($"Spawned Scientist #{i+1} (Apex AI) near crate.");
                 }
                 else
                 {
-                    Puts("Error: Failed to create or spawn scientist entity.");
+                    // Fallback: send SetHome and try to set Hostile property
+                    entity.SendMessage("SetHome", cratePos, SendMessageOptions.DontRequireReceiver);
+                    var type = entity.GetType();
+                    var hostileProp = type.GetProperty("Hostile");
+                    if (hostileProp != null)
+                        hostileProp.SetValue(entity, true);
+                    var minRangeProp = type.GetProperty("minRoamRange");
+                    var maxRangeProp = type.GetProperty("maxRoamRange");
+                    if (minRangeProp != null)
+                        minRangeProp.SetValue(entity, 0f);
+                    if (maxRangeProp != null)
+                        maxRangeProp.SetValue(entity, config.RoamRadius);
+                    Puts($"Spawned Scientist #{i+1} (fallback) near crate.");
                 }
             }
         }

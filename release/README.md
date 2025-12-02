@@ -2,20 +2,35 @@
 
 This directory contains everything needed to install the CrateGuardCS plugin on your Rust server.
 
+## Prerequisite
+
+This plugin requires the Oxide/uMod runtime (Oxide.Rust) to be installed on your Rust server. Oxide provides the plugin system that loads and runs uMod plugins.
+
+Quick install summary:
+
+- Download Oxide for Rust from: https://umod.org/
+- Extract the Oxide release ZIP into your Rust server root (where `RustDedicated.exe` is). This will create an `oxide/` folder.
+- Restart the server and verify Oxide is initialized by running `oxide.version` in the server console.
+
+See the **Installation** section below for deploying this plugin after Oxide is installed.
+
 ## Installation
 
-### Step 1: Extract Files
-Extract this archive to your Rust server root directory so that:
-- `CrateGuardCS.dll` goes to `oxide/plugins/`
-- `CrateGuards.json` goes to `oxide/config/`
+### Step 1: Place Plugin Source
+Copy `crateGuards.cs` into your server's `oxide/plugins` folder. (Do not use the DLL; Oxide/uMod will compile the source file automatically.)
 
-### Step 2: Load the Plugin
-If your server is already running, use the console command:
-```
-oxide.reload crateGuards
-```
+### Step 2: Place Configuration
+Copy `CrateGuards.json` into your server's `oxide/config` folder.
 
-Or restart your server to auto-load the plugin.
+### Step 3: Restart Server
+Restart your Rust server. Oxide will compile and load the plugin automatically.
+
+### Step 4: Verify Plugin
+In the server console, run:
+```
+oxide.plugins
+```
+You should see `CrateGuardCS` listed. If not, check server logs and ensure the `.cs` file is present in `oxide/plugins`.
 
 ## Configuration
 
