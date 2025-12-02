@@ -6,6 +6,8 @@
 ## has more thorough IDE-specific entries.
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
+.github/
+.vs/
 
 # Build results
 [Dd]ebug/
@@ -55,6 +57,7 @@ nunit-*.xml
 steamcmd/
 
 # Project-specific
+oxide/
 
 # Only ignore release zips outside the release folder
 *.zip

@@ -1,84 +1,146 @@
 using System.Collections.Generic;
-using System.Reflection;
-using Oxide.Core.Plugins;
+using Rust;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    // Define the plugin name and author
-        [Info("CrateGuardCS", "Eadris", "1.0.0")]
+    [Info("CrateGuardCS", "Eadris", "1.0.0")]
     [Description("Spawns scientists to guard supply drop crates.")]
     public class CrateGuardCS : RustPlugin
     {
-        // --- Configuration Fields ---
-        
-        // This class defines the structure for your configuration file (oxide/config/CrateGuardCS.json)
-        class Configuration
+        // Register permission on plugin load
+        void Init()
         {
-            public int GuardsPerCrate = 3;
+            permission.RegisterPermission("crateguard.spawn", this);
+        }
+
+        // Configuration structure
+        private class Configuration
+        {
+            public int MinGuardsPerCrate = 0;
+            public int MaxGuardsPerCrate = 3;
             public float RoamRadius = 15f;
+            public int SpawnDelaySeconds = 0; // Delay after crate lands before spawning
         }
 
         private Configuration config;
-
-        // Single correct scientist prefab path
-        private const string ScientistPrefab = "assets/prefabs/npc/scientist/scientist_full_any.prefab";
-
-        // --- Plugin Initialization ---
 
         protected override void LoadConfig()
         {
             base.LoadConfig();
             config = Config.ReadObject<Configuration>();
+            if (config == null)
+            {
+                // If the config file is empty or invalid, regenerate defaults and save
+                LoadDefaultConfig();
+                return;
+            }
+            // Ensure reasonable bounds and persist any missing/defaulted values
+            if (config.MinGuardsPerCrate < 0)
+            {
+                config.MinGuardsPerCrate = 0;
+            }
+            if (config.MaxGuardsPerCrate < 0)
+            {
+                config.MaxGuardsPerCrate = 3;
+            }
+            if (config.MinGuardsPerCrate > config.MaxGuardsPerCrate)
+            {
+                config.MinGuardsPerCrate = 0;
+                config.MaxGuardsPerCrate = Mathf.Max(1, config.MaxGuardsPerCrate);
+            }
+            if (config.RoamRadius <= 0f)
+            {
+                config.RoamRadius = 15f;
+            }
+            if (config.SpawnDelaySeconds < 0)
+            {
+                config.SpawnDelaySeconds = 0;
+            }
+            SaveConfig();
         }
 
         protected override void LoadDefaultConfig()
         {
             config = new Configuration();
+            SaveConfig();
         }
+
+        protected override void SaveConfig() => Config.WriteObject(config, true);
 
         void OnServerInitialized()
         {
-            // Code that runs when the server is fully started
-            Puts("CrateGuardCS plugin loaded successfully.");
-            Puts($"  Guards per crate: {config.GuardsPerCrate}");
-            Puts($"  Roam radius: {config.RoamRadius}");
+            Puts("[CrateGuardCS] Plugin loaded successfully.");
+            Puts($"[CrateGuardCS] Min guards per crate: {config.MinGuardsPerCrate}");
+            Puts($"[CrateGuardCS] Max guards per crate: {config.MaxGuardsPerCrate}");
+            Puts($"[CrateGuardCS] Roam radius: {config.RoamRadius}");
         }
-
-        // --- Chat Commands ---
 
         [ChatCommand("crateguards")]
         void CmdCrateGuards(BasePlayer player, string command, string[] args)
         {
-            if (!player.IsAdmin)
+            if (!permission.UserHasPermission(player.UserIDString, "crateguard.spawn"))
             {
-                player.ChatMessage("You need admin permissions to use this command.");
+                player.ChatMessage("You do not have permission to use this command.");
                 return;
             }
 
             if (args.Length == 0)
             {
                 player.ChatMessage("=== CrateGuardCS Commands ===");
-                player.ChatMessage("/crateguards guards <number> - Set guards per crate");
+                player.ChatMessage("/crateguards min <number> - Set minimum guards per crate (0+)");
+                player.ChatMessage("/crateguards max <number> - Set maximum guards per crate (1+)");
                 player.ChatMessage("/crateguards radius <distance> - Set roam radius");
+                player.ChatMessage("/crateguards delay <seconds> - Set spawn delay in seconds");
                 player.ChatMessage("/crateguards status - Show current settings");
+                player.ChatMessage("/crateguards spawn - Spawn a scientist at your position (requires permission)");
                 return;
             }
 
             string subcommand = args[0].ToLower();
 
-            if (subcommand == "guards" && args.Length > 1)
+            if (subcommand == "spawn")
             {
-                if (int.TryParse(args[1], out int guardCount) && guardCount > 0)
+                Vector3 pos = player.transform.position + new Vector3(0, 2f, 0);
+                SpawnScientist(pos);
+                player.ChatMessage($"Spawned scientist at {pos.x}, {pos.y}, {pos.z}");
+                Puts($"[CrateGuardCS] {player.displayName} spawned scientist at {pos.x}, {pos.y}, {pos.z}");
+                return;
+            }
+            if (subcommand == "min" && args.Length > 1)
+            {
+                if (int.TryParse(args[1], out int minVal) && minVal >= 0)
                 {
-                    config.GuardsPerCrate = guardCount;
+                    config.MinGuardsPerCrate = minVal;
+                    if (config.MinGuardsPerCrate > config.MaxGuardsPerCrate)
+                    {
+                        config.MaxGuardsPerCrate = config.MinGuardsPerCrate;
+                    }
                     SaveConfig();
-                    player.ChatMessage($"Guards per crate set to: {guardCount}");
-                    Puts($"[CrateGuards] Admin {player.displayName} set guards per crate to: {guardCount}");
+                    player.ChatMessage($"Min guards per crate set to: {config.MinGuardsPerCrate}");
+                    Puts($"[CrateGuardCS] {player.displayName} set min guards per crate to: {config.MinGuardsPerCrate}");
                 }
                 else
                 {
-                    player.ChatMessage("Invalid value. Please use a positive number.");
+                    player.ChatMessage("Invalid value. Please use a number >= 0.");
+                }
+            }
+            else if (subcommand == "max" && args.Length > 1)
+            {
+                if (int.TryParse(args[1], out int maxVal) && maxVal >= 1)
+                {
+                    config.MaxGuardsPerCrate = maxVal;
+                    if (config.MinGuardsPerCrate > config.MaxGuardsPerCrate)
+                    {
+                        config.MinGuardsPerCrate = config.MaxGuardsPerCrate;
+                    }
+                    SaveConfig();
+                    player.ChatMessage($"Max guards per crate set to: {config.MaxGuardsPerCrate}");
+                    Puts($"[CrateGuardCS] {player.displayName} set max guards per crate to: {config.MaxGuardsPerCrate}");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a number >= 1.");
                 }
             }
             else if (subcommand == "radius" && args.Length > 1)
@@ -88,18 +150,34 @@ namespace Oxide.Plugins
                     config.RoamRadius = radius;
                     SaveConfig();
                     player.ChatMessage($"Roam radius set to: {radius}");
-                    Puts($"[CrateGuards] Admin {player.displayName} set roam radius to: {radius}");
+                    Puts($"[CrateGuardCS] {player.displayName} set roam radius to: {radius}");
                 }
                 else
                 {
                     player.ChatMessage("Invalid value. Please use a positive number.");
                 }
             }
+            else if (subcommand == "delay" && args.Length > 1)
+            {
+                if (int.TryParse(args[1], out int delay) && delay >= 0)
+                {
+                    config.SpawnDelaySeconds = delay;
+                    SaveConfig();
+                    player.ChatMessage($"Spawn delay set to: {delay} seconds");
+                    Puts($"[CrateGuardCS] {player.displayName} set spawn delay to: {delay} seconds");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Please use a non-negative number.");
+                }
+            }
             else if (subcommand == "status")
             {
                 player.ChatMessage("=== CrateGuardCS Status ===");
-                player.ChatMessage($"Guards per crate: {config.GuardsPerCrate}");
+                player.ChatMessage($"Min guards per crate: {config.MinGuardsPerCrate}");
+                player.ChatMessage($"Max guards per crate: {config.MaxGuardsPerCrate}");
                 player.ChatMessage($"Roam radius: {config.RoamRadius}");
+                player.ChatMessage($"Spawn delay: {config.SpawnDelaySeconds} seconds");
             }
             else
             {
@@ -107,10 +185,40 @@ namespace Oxide.Plugins
             }
         }
 
-        // --- Oxide Hook (The main logic) ---
+        // Spawn scientist NPC at a given position
+        // Common scientist prefab variations in Rust:
+        // - assets/prefabs/npc/scientist/htn/scientist_full_any.prefab (common)
+        // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab
+        // - assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam_tethered.prefab
+        private const string ScientistPrefab = "assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_roam.prefab";
+        // NOTE: Rust 2025 does not support customizing patrol, aggression, or roam radius via plugin code.
+        // The RoamRadius config only affects spawn position randomization, not AI behavior.
+        // Scientists will use default prefab AI (patrol, attack, roam) as defined by the server.
+        void SpawnScientist(Vector3 position)
+        {
+            BaseEntity entity = GameManager.server.CreateEntity(ScientistPrefab, position, Quaternion.identity);
+            if (entity != null)
+            {
+                entity.Spawn();
+                Puts($"[CrateGuardCS] Entity spawned: Type={entity.GetType().Name}, ShortPrefabName={entity.ShortPrefabName}");
+                timer.Once(1f, () => {
+                    if (entity != null && !entity.IsDestroyed)
+                    {
+                        Puts($"[CrateGuardCS] Entity confirmed alive at {position}");
+                    }
+                    else
+                    {
+                        Puts($"[CrateGuardCS] Entity failed to spawn at {position}");
+                    }
+                });
+            }
+            else
+            {
+                Puts($"[CrateGuardCS] Failed to create entity with prefab: {ScientistPrefab}");
+            }
+        }
 
-        // HOOK: This is the uMod/Oxide hook that triggers when a supply drop lands.
-        // The object passed is the SupplyDrop entity (a BaseEntity).
+        // --- Oxide Hook (The main logic) ---
         void OnSupplyDropLanded(SupplyDrop supplyDrop)
         {
             if (supplyDrop == null || !supplyDrop.IsValid()) 
@@ -119,64 +227,36 @@ namespace Oxide.Plugins
             }
 
             Vector3 cratePos = supplyDrop.transform.position;
-            int guards = config.GuardsPerCrate;
-            
-            Puts($"Supply Crate landed at {cratePos}. Spawning {guards} guards...");
+            int minG = Mathf.Max(0, config.MinGuardsPerCrate);
+            int maxG = Mathf.Max(minG, config.MaxGuardsPerCrate);
+            int guards = Random.Range(minG, maxG + 1);
+            Puts($"[CrateGuardCS] Supply Crate landed at {cratePos}. Will spawn {guards} guards in {config.SpawnDelaySeconds} seconds...");
 
-            for (int i = 0; i < guards; i++)
-            {
-                float xOffset = Random.Range(-5f, 5f);
-                float zOffset = Random.Range(-5f, 5f);
-                Vector3 spawnPos = cratePos + new Vector3(xOffset, 1.5f, zOffset);
-
-                BaseEntity entity = GameManager.server.CreateEntity(ScientistPrefab, spawnPos);
-                if (entity == null || !entity.IsValid())
+            timer.Once(config.SpawnDelaySeconds, () => {
+                for (int i = 0; i < guards; i++)
                 {
-                    Puts($"Error: Failed to create scientist NPC entity #{i+1}.");
-                    continue;
+                    // Ensure spawn offset is at least 2 units away from crate center
+                    float xOffset = Random.Range(-5f, 5f);
+                    float zOffset = Random.Range(-5f, 5f);
+                    float distance = Mathf.Sqrt(xOffset * xOffset + zOffset * zOffset);
+                    if (distance < 2f)
+                    {
+                        float scale = 2f / distance;
+                        xOffset *= scale;
+                        zOffset *= scale;
+                    }
+                    
+                    Vector3 abovePos = cratePos + new Vector3(xOffset, 50f, zOffset);
+                    RaycastHit hit;
+                    Vector3 groundPos = cratePos + new Vector3(xOffset, 1.5f, zOffset);
+                    if (Physics.Raycast(abovePos, Vector3.down, out hit, 100f, LayerMask.GetMask("Terrain", "World", "Default")))
+                    {
+                        groundPos = hit.point;
+                    }
+                    Puts($"[CrateGuardCS] Spawning scientist at {groundPos.x}, {groundPos.y}, {groundPos.z}");
+                    SpawnScientist(groundPos);
                 }
-
-                entity.enableSaving = false;
-
-                // Use reflection only, no dynamic
-                var apexType = entity.GetType().Assembly.GetType("NPCPlayerApex");
-                if (apexType != null && apexType.IsInstanceOfType(entity))
-                {
-                    var hostileProp = apexType.GetProperty("Hostile");
-                    if (hostileProp != null)
-                        hostileProp.SetValue(entity, true, null);
-                    var setHomeMethod = apexType.GetMethod("SetHome");
-                    if (setHomeMethod != null)
-                        setHomeMethod.Invoke(entity, new object[] { cratePos });
-                    var minRangeProp = apexType.GetProperty("minRoamRange");
-                    var maxRangeProp = apexType.GetProperty("maxRoamRange");
-                    if (minRangeProp != null)
-                        minRangeProp.SetValue(entity, 0f, null);
-                    if (maxRangeProp != null)
-                        maxRangeProp.SetValue(entity, config.RoamRadius, null);
-                    var spawnMethod = apexType.GetMethod("Spawn");
-                    if (spawnMethod != null)
-                        spawnMethod.Invoke(entity, null);
-                    Puts($"Spawned Scientist #{i+1} (Apex AI) near crate.");
-                }
-                else
-                {
-                    entity.SendMessage("SetHome", cratePos, SendMessageOptions.DontRequireReceiver);
-                    var hostileProp = entity.GetType().GetProperty("Hostile");
-                    if (hostileProp != null)
-                        hostileProp.SetValue(entity, true, null);
-                    var minRangeProp = entity.GetType().GetProperty("minRoamRange");
-                    var maxRangeProp = entity.GetType().GetProperty("maxRoamRange");
-                    if (minRangeProp != null)
-                        minRangeProp.SetValue(entity, 0f, null);
-                    if (maxRangeProp != null)
-                        maxRangeProp.SetValue(entity, config.RoamRadius, null);
-                    var spawnMethod = entity.GetType().GetMethod("Spawn");
-                    if (spawnMethod != null)
-                        spawnMethod.Invoke(entity, null);
-                    Puts($"Spawned Scientist #{i+1} (fallback) near crate.");
-                }
-            }
+            });
         }
     }
 }
