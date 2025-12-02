@@ -22,6 +22,7 @@ namespace Oxide.Plugins
             public float RoamRadius = 5f;
             public int SpawnDelaySeconds = 2; // Delay after crate lands before spawning
             public float MinSpawnDistanceFromCrate = 2f; // Minimum distance from crate center
+            public bool EnableCrateGuards = true; // Toggle spawning guards for supply drop crates
         }
 
         private Configuration config;
@@ -62,6 +63,8 @@ namespace Oxide.Plugins
             {
                 config.MinSpawnDistanceFromCrate = 2f;
             }
+            // Toggle defaults sanity
+            // If missing, defaults above already set; no further action needed
             SaveConfig();
         }
 
@@ -79,6 +82,7 @@ namespace Oxide.Plugins
             Puts($"[CrateGuardCS] Min guards per crate: {config.MinGuardsPerCrate}");
             Puts($"[CrateGuardCS] Max guards per crate: {config.MaxGuardsPerCrate}");
             Puts($"[CrateGuardCS] Roam radius: {config.RoamRadius}");
+            Puts($"[CrateGuardCS] Crate guards enabled: {config.EnableCrateGuards}");
         }
 
         [ChatCommand("crateguards")]
@@ -98,6 +102,7 @@ namespace Oxide.Plugins
                 player.ChatMessage("/crateguards radius <distance> - Set roam radius");
                 player.ChatMessage("/crateguards delay <seconds> - Set spawn delay in seconds");
                 player.ChatMessage("/crateguards mindist <distance> - Set minimum spawn distance from crate");
+                player.ChatMessage("/crateguards crates <on|off> - Toggle crate guards");
                 player.ChatMessage("/crateguards status - Show current settings");
                 player.ChatMessage("/crateguards spawn - Spawn a scientist at your position (requires permission)");
                 return;
@@ -191,6 +196,21 @@ namespace Oxide.Plugins
                     player.ChatMessage("Invalid value. Please use a non-negative number.");
                 }
             }
+            else if (subcommand == "crates" && args.Length > 1)
+            {
+                string val = args[1].ToLowerInvariant();
+                if (val == "on" || val == "off")
+                {
+                    config.EnableCrateGuards = val == "on";
+                    SaveConfig();
+                    player.ChatMessage($"Crate guards {(config.EnableCrateGuards ? "enabled" : "disabled")}");
+                    Puts($"[CrateGuardCS] {player.displayName} {(config.EnableCrateGuards ? "enabled" : "disabled")} crate guards");
+                }
+                else
+                {
+                    player.ChatMessage("Invalid value. Use on|off.");
+                }
+            }
             else if (subcommand == "status")
             {
                 player.ChatMessage("=== CrateGuardCS Status ===");
@@ -199,6 +219,7 @@ namespace Oxide.Plugins
                 player.ChatMessage($"Roam radius: {config.RoamRadius}");
                 player.ChatMessage($"Spawn delay: {config.SpawnDelaySeconds} seconds");
                 player.ChatMessage($"Min spawn distance from crate: {config.MinSpawnDistanceFromCrate}");
+                player.ChatMessage($"Crate guards: {(config.EnableCrateGuards ? "enabled" : "disabled")}");
             }
             else
             {
@@ -248,6 +269,11 @@ namespace Oxide.Plugins
         void OnSupplyDropLanded(SupplyDrop supplyDrop)
         {
             if (supplyDrop == null || !supplyDrop.IsValid()) 
+            {
+                return;
+            }
+
+            if (!config.EnableCrateGuards)
             {
                 return;
             }
