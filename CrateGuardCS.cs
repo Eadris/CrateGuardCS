@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
     // Define the plugin name and author
-    [Info("CrateGuardCS", "Eadris", "1.0.0")]
+        [Info("CrateGuardCS", "Eadris", "1.0.0")]
     [Description("Spawns scientists to guard supply drop crates.")]
     public class CrateGuardCS : RustPlugin
     {
@@ -21,7 +21,7 @@ namespace Oxide.Plugins
 
         private Configuration config;
 
-        // The prefab path for the scientist NPC (Rust 2025)
+        // Single correct scientist prefab path
         private const string ScientistPrefab = "assets/prefabs/npc/scientist/scientist_full_any.prefab";
 
         // --- Plugin Initialization ---
@@ -132,39 +132,48 @@ namespace Oxide.Plugins
                 BaseEntity entity = GameManager.server.CreateEntity(ScientistPrefab, spawnPos);
                 if (entity == null || !entity.IsValid())
                 {
-                    Puts($"Error: Failed to create scientist entity #{i+1}.");
+                    Puts($"Error: Failed to create scientist NPC entity #{i+1}.");
                     continue;
                 }
 
                 entity.enableSaving = false;
-                entity.Spawn();
 
-                // Try to cast to NPCPlayerApex (actual scientist AI)
+                // Use reflection only, no dynamic
                 var apexType = entity.GetType().Assembly.GetType("NPCPlayerApex");
                 if (apexType != null && apexType.IsInstanceOfType(entity))
                 {
-                    dynamic npc = entity;
-                    npc.Hostile = true;
-                    npc.SetHome(cratePos);
-                    npc.minRoamRange = 0f;
-                    npc.maxRoamRange = config.RoamRadius;
-                    npc.StartAI();
+                    var hostileProp = apexType.GetProperty("Hostile");
+                    if (hostileProp != null)
+                        hostileProp.SetValue(entity, true, null);
+                    var setHomeMethod = apexType.GetMethod("SetHome");
+                    if (setHomeMethod != null)
+                        setHomeMethod.Invoke(entity, new object[] { cratePos });
+                    var minRangeProp = apexType.GetProperty("minRoamRange");
+                    var maxRangeProp = apexType.GetProperty("maxRoamRange");
+                    if (minRangeProp != null)
+                        minRangeProp.SetValue(entity, 0f, null);
+                    if (maxRangeProp != null)
+                        maxRangeProp.SetValue(entity, config.RoamRadius, null);
+                    var spawnMethod = apexType.GetMethod("Spawn");
+                    if (spawnMethod != null)
+                        spawnMethod.Invoke(entity, null);
                     Puts($"Spawned Scientist #{i+1} (Apex AI) near crate.");
                 }
                 else
                 {
-                    // Fallback: send SetHome and try to set Hostile property
                     entity.SendMessage("SetHome", cratePos, SendMessageOptions.DontRequireReceiver);
-                    var type = entity.GetType();
-                    var hostileProp = type.GetProperty("Hostile");
+                    var hostileProp = entity.GetType().GetProperty("Hostile");
                     if (hostileProp != null)
-                        hostileProp.SetValue(entity, true);
-                    var minRangeProp = type.GetProperty("minRoamRange");
-                    var maxRangeProp = type.GetProperty("maxRoamRange");
+                        hostileProp.SetValue(entity, true, null);
+                    var minRangeProp = entity.GetType().GetProperty("minRoamRange");
+                    var maxRangeProp = entity.GetType().GetProperty("maxRoamRange");
                     if (minRangeProp != null)
-                        minRangeProp.SetValue(entity, 0f);
+                        minRangeProp.SetValue(entity, 0f, null);
                     if (maxRangeProp != null)
-                        maxRangeProp.SetValue(entity, config.RoamRadius);
+                        maxRangeProp.SetValue(entity, config.RoamRadius, null);
+                    var spawnMethod = entity.GetType().GetMethod("Spawn");
+                    if (spawnMethod != null)
+                        spawnMethod.Invoke(entity, null);
                     Puts($"Spawned Scientist #{i+1} (fallback) near crate.");
                 }
             }
