@@ -59,8 +59,7 @@ steamcmd/
 # Project-specific
 oxide/
 
-# Only ignore release zips outside the release folder
+# Ignore release artifacts folder entirely
+release/
 *.zip
-!release/
-!release/**
 

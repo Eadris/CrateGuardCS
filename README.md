@@ -23,7 +23,7 @@ A Rust plugin that automatically spawns hostile scientist NPCs to guard supply d
 
 2. **Install Plugin**:
    - Copy `CrateGuardCS.cs` to your server's `oxide/plugins/` folder
-   - (Optional) Copy `CrateGuards.json` to `oxide/config/` to customize defaults
+   - (Optional) Copy `CrateGuardCS.json` to `oxide/config/` to customize defaults
    - Restart your server or run `oxide.reload CrateGuardCS` in the server console
 
 3. **Grant Admin Permissions**:
@@ -47,7 +47,7 @@ A Rust plugin that automatically spawns hostile scientist NPCs to guard supply d
 
 ## Configuration
 
-Edit `oxide/config/CrateGuards.json`:
+Edit `oxide/config/CrateGuardCS.json`:
 
 ```json
 {
