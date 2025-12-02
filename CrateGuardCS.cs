@@ -21,6 +21,7 @@ namespace Oxide.Plugins
             public int MaxGuardsPerCrate = 3;
             public float RoamRadius = 5f;
             public int SpawnDelaySeconds = 2; // Delay after crate lands before spawning
+            public float MinSpawnDistanceFromCrate = 2f; // Minimum distance from crate center
         }
 
         private Configuration config;
