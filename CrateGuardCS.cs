@@ -236,8 +236,8 @@ namespace Oxide.Plugins
                 for (int i = 0; i < guards; i++)
                 {
                     // Ensure spawn offset is at least 2 units away from crate center
-                    float xOffset = Random.Range(-5f, 5f);
-                    float zOffset = Random.Range(-5f, 5f);
+                    float xOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
+                    float zOffset = Random.Range(-config.RoamRadius, config.RoamRadius);
                     float distance = Mathf.Sqrt(xOffset * xOffset + zOffset * zOffset);
                     if (distance < 2f)
                     {
